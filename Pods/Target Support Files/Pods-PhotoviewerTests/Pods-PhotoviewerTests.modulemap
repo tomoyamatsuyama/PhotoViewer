@@ -1,0 +1,6 @@
+framework module Pods_PhotoviewerTests {
+  umbrella header "Pods-PhotoviewerTests-umbrella.h"
+
+  export *
+  module * { export * }
+}
