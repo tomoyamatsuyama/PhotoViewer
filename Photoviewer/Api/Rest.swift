@@ -8,6 +8,7 @@
 
 import Foundation
 import Alamofire
+import RxSwift
 
 extension Api {
     struct Rest {
@@ -58,16 +59,12 @@ extension Api {
             }
         }
         
-        static func getList(completion: @escaping ((Feed) -> Void)) {
-            Api.create(configure: Requests.list).request(completion: { feed in
-                completion(feed)
-            })
+        static func getList() -> Observable<Feed> {
+            return Api.create(configure: Requests.list).request()
         }
         
-        static func getListByPosition(lat: String,log: String, completion: @escaping ((Feed) -> Void)) {
-            Api.create(configure: Requests.position(latitude: lat, longitude: log)).request(completion: { feed in
-                completion(feed)
-            })
+        static func getListByPosition(lat: String,log: String) -> Observable<Feed> {
+            return Api.create(configure: Requests.position(latitude: lat, longitude: log)).request()
         }
     }
 }

@@ -9,6 +9,8 @@
 import UIKit
 import CoreLocation
 import MapKit
+import RxSwift
+import RxCocoa
 
 enum SearchBar: CGFloat {
     case hidden = -56
@@ -36,13 +38,14 @@ class HomeViewController: UIViewController {
     private let indicator = UIActivityIndicatorView()
     var locationManager: CLLocationManager!
     private var isSearchBarHidden = true
+    private let disposeBag = DisposeBag()
     
     @IBAction func findButtonTapped(_ sender: Any) {
         self.operateSearchBar()
     }
     
     @IBAction func nearButtonTapped(_ sender: Any) {
-        self.bind(isRequestOfPositionList: true)
+        self.homeVM.bind(isRequestOfPositionList: true)
     }
     
     private func operateSearchBar() {
@@ -63,6 +66,19 @@ class HomeViewController: UIViewController {
         })
     }
     
+    func bindViewModel() {
+        self.startIndicator(indicator: self.indicator)
+        homeVM.photos.asObservable()
+            .subscribeOn(MainScheduler.instance)
+            .subscribe(
+                onNext: {_ in
+                    self.stopIndicator(indicator: self.indicator)
+                    self.mainCollectionView.reloadData()
+                }
+            )
+            .disposed(by: disposeBag)
+    }
+    
     func setPosition(lat: String, log: String) {
         self.homeVM.setPosition(lat: lat, log: log)
     }
@@ -75,16 +91,7 @@ class HomeViewController: UIViewController {
     
     private func reload(lat: String, log: String) {
         self.homeVM.setPosition(lat: lat, log: log)
-        self.bind(isRequestOfPositionList: true)
-    }
-    
-    private func bind(isRequestOfPositionList: Bool = false) {
-        self.startIndicator(indicator: indicator)
-        homeVM.reloadData(isRequestOfPositionList: isRequestOfPositionList, completion: { [weak self] in
-            guard let `self` = self else { return }
-            self.stopIndicator(indicator: self.indicator)
-            self.mainCollectionView.reloadData()
-        })
+        self.homeVM.bind(isRequestOfPositionList: true)
     }
     
     private func configure() {
@@ -93,6 +100,8 @@ class HomeViewController: UIViewController {
         self.setupLocationManager()
         self.mainCollectionView.dataSource = homeVM
         self.mainCollectionView.delegate = self
+        self.searchBar.showsCancelButton = false
+        self.searchBar.placeholder = "Enter your search here"
     }
     
     static func instantiate() -> UINavigationController {
@@ -101,29 +110,27 @@ class HomeViewController: UIViewController {
         return vc
     }
     
-    private func createSesarchBar() {
-        self.searchBar.showsCancelButton = false
-        self.searchBar.placeholder = "Enter your search here"
-    }
-    
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.bind()
         self.configure()
-        self.createSesarchBar()
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(true)
+        self.bindViewModel()
+        self.homeVM.bind()
     }
 }
 
 extension HomeViewController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let latitude = self.homeVM.latitudes[indexPath.row]
-        let longtitude = self.homeVM.longitudes[indexPath.row]
-        self.goToSerachBar(lat: latitude, log: longtitude, imageUrlString: self.homeVM.photos[indexPath.row])
+        let latitude = self.homeVM.photos.value[indexPath.row].latitude
+        let longtitude = self.homeVM.photos.value[indexPath.row].longitude
+        self.goToSerachBar(lat: latitude, log: longtitude, imageUrlString: self.homeVM.photos.value[indexPath.row].url_n)
     }
 }
 
 extension HomeViewController: UISearchBarDelegate {
-    
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         searchBar.endEditing(true)
     }

@@ -8,6 +8,7 @@
 
 import Foundation
 import Alamofire
+import RxSwift
 
 protocol Requestable {
     var path: String { get }
@@ -27,6 +28,11 @@ enum ApiMethod {
             return .post
         }
     }
+}
+
+enum Result<T, E> {
+    case success(T)
+    case failure(E)
 }
 
 typealias Palameters = Parameters
@@ -64,6 +70,29 @@ class Api {
         } else {
             return false
         }
+    }
+    
+    func request<E: Decodable>() -> Observable<E> {
+        return Observable.create({(observer : AnyObserver<E>) in
+            Alamofire.request(self.baseUrl, parameters: self.parameters).responseJSON { result in
+                guard let response = result.response else {
+                    return
+                }
+                if self.checkIsStatus(statusCode: response.statusCode) {
+                    guard let data = result.data else { return }
+                    do {
+                        let result = try JSONDecoder().decode(E.self, from: data)
+                        observer.onNext(result)
+                        observer.onCompleted()
+                    } catch let error {
+                        observer.onError(error)
+                    }
+                }
+            }
+            return Disposables.create {
+                
+            }
+        })
     }
     
     func request(completion: @escaping ((Feed) -> Void)) {

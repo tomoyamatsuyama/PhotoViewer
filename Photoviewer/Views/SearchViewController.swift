@@ -10,6 +10,8 @@ import UIKit
 import CoreLocation
 import MapKit
 import Kingfisher
+import RxSwift
+import RxCocoa
 
 class SearchViewController: UIViewController, Instantiatable {
     @IBOutlet private weak var searchCollectionView: UICollectionView!
@@ -20,6 +22,7 @@ class SearchViewController: UIViewController, Instantiatable {
     private var searchVM: SearchViewModel = SearchViewModel.init()
     private var imageUrlString: String = ""
     let cellMargin: CGFloat = 2.0
+    private let disposeBag = DisposeBag()
     
     @IBAction func backButtonTapped(_ sender: Any) {
         self.navigationController?.popViewController(animated: true)
@@ -37,17 +40,21 @@ class SearchViewController: UIViewController, Instantiatable {
     }
     
     private func bind() {
+        self.startIndicator(indicator: self.indicator)
         Location.reverseGeoCoder(lat: Double(searchVM.latitude)!, log: Double(searchVM.longitude)!, completion: { [weak self] text in
             guard let `self` = self else { return }
             self.headerTittle.text = text
         })
         
-        self.startIndicator(indicator: indicator)
-        self.searchVM.reloadData(completion: { [weak self] in
-            guard let `self` = self else { return }
-            self.stopIndicator(indicator: self.indicator)
-            self.searchCollectionView.reloadData()
-        })
+        searchVM.photos.asObservable()
+            .subscribeOn(MainScheduler.instance)
+            .subscribe(
+                onNext: {_ in
+                    self.stopIndicator(indicator: self.indicator)
+                    self.searchCollectionView.reloadData()
+                }
+            )
+            .disposed(by: disposeBag)
     }
     
     override func viewDidLoad() {
@@ -55,11 +62,16 @@ class SearchViewController: UIViewController, Instantiatable {
         self.searchCollectionView.dataSource = searchVM
         self.setImage()
     }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(true)
+        self.searchVM.reloadData()
+    }
 }
 
 extension SearchViewController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        self.imageUrlString = self.searchVM.photos[indexPath.row]
+        self.imageUrlString = self.searchVM.photos.value[indexPath.row].url_n
         self.setImage()
     }
 }

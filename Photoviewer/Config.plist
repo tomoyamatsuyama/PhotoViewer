@@ -3,8 +3,8 @@
 <plist version="1.0">
 <dict>
 	<key>api_secret</key>
-	<string>ac1ec036739ef363b42e51dcfe5fb0db</string>
-	<key>api_key</key>
 	<string>fc27bf28fa86885e</string>
+	<key>api_key</key>
+	<string>ac1ec036739ef363b42e51dcfe5fb0db</string>
 </dict>
 </plist>

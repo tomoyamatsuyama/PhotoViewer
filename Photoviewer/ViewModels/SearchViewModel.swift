@@ -8,11 +8,14 @@
 
 import Foundation
 import UIKit
+import RxSwift
+import RxCocoa
 
 class SearchViewModel: NSObject, UICollectionViewDataSource {
     private(set) var latitude: String = ""
     private(set) var longitude: String = ""
-    private(set) var photos: [String] = []
+    private(set) var photos: Variable<[Feed.Info]> = .init([])
+    private let disposeBag = DisposeBag()
     
     func setPosition(lat: String, log: String) {
         self.latitude = lat
@@ -20,21 +23,23 @@ class SearchViewModel: NSObject, UICollectionViewDataSource {
     }
     
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return photos.count
+        return photos.value.count
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "serachViewCell", for: indexPath) as! HomeCollectionViewCell
-        cell.bind(cell, imageUrlString: photos[indexPath.row])
+        cell.bind(cell, imageUrlString: photos.value[indexPath.row].url_n)
         return cell
     }
     
     func reloadData(completion: (() -> Void)? = nil) {
-        Api.Rest.getListByPosition(lat: latitude, log: longitude, completion: { feed in
-            for photo in feed.photos.photo {
-                self.photos.append(photo.url_n)
-            }
-            completion?()
-        })
+        Api.Rest.getListByPosition(lat: latitude, log: longitude)
+            .subscribe(
+                onNext: { [weak self] feed in
+                    guard let `self` = self else { return }
+                    self.photos.value = feed.photos.photo
+                }
+            )
+            .disposed(by: disposeBag)
     }
 }

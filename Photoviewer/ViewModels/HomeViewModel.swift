@@ -8,13 +8,14 @@
 
 import Foundation
 import UIKit
+import RxSwift
+import RxCocoa
 
 class HomeViewModel: NSObject, UICollectionViewDataSource {
-    private(set) var photos: [String] = []
-    private(set) var latitudes: [String] = []
-    private(set) var longitudes: [String] = []
     private var latitude: String = ""
     private var longitude: String = ""
+    private(set) var photos: Variable<[Feed.Info]> = .init([])
+    private let disposeBag = DisposeBag()
     
     func setPosition(lat: String, log: String) {
         self.latitude = lat
@@ -22,43 +23,36 @@ class HomeViewModel: NSObject, UICollectionViewDataSource {
     }
     
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return photos.count
+        return self.photos.value.count
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "mainCell", for: indexPath) as! HomeCollectionViewCell
-        cell.bind(cell, imageUrlString: photos[indexPath.row])
+        if !photos.value.isEmpty {
+            cell.bind(cell, imageUrlString: self.photos.value[indexPath.row].url_n)
+        }
         return cell
     }
-    
-    private func initialize() {
-        self.photos = .init()
-        self.latitudes = .init()
-        self.longitudes = .init()
-    }
-    
-    private func setData(feed: Feed) {
-        for photo in feed.photos.photo {
-            self.photos.append(photo.url_n)
-            self.latitudes.append(photo.latitude)
-            self.longitudes.append(photo.longitude)
-        }
-    }
-    
-    func reloadData(isRequestOfPositionList: Bool, completion: (() -> Void)? = nil) {
-        self.initialize()
+        
+    func bind(isRequestOfPositionList: Bool = false) {
         if isRequestOfPositionList {
-            Api.Rest.getListByPosition(lat: latitude, log: longitude, completion: { [weak self] feed in
-                guard let `self` = self else { return }
-                self.setData(feed: feed)
-                completion?()
-            })
+            Api.Rest.getListByPosition(lat: latitude, log: longitude)
+                .subscribe(
+                    onNext: { [weak self] feed in
+                        guard let `self` = self else { return }
+                        self.photos.value = feed.photos.photo
+                    }
+                )
+                .disposed(by: disposeBag)
         } else {
-            Api.Rest.getList(completion: { [weak self] feed in
-                guard let `self` = self else { return }
-                self.setData(feed: feed)
-                completion?()
-            })
+            Api.Rest.getList()
+                .subscribe(
+                    onNext: { [weak self] feed in
+                        guard let `self` = self else { return }
+                        self.photos.value = feed.photos.photo
+                    }
+                )
+                .disposed(by: disposeBag)
         }
-    }
+    }    
 }
